@@ -1,5 +1,16 @@
 # Timely Dataflow #
 
+> **Warning**
+>
+> Do **not** merge material changes to this fork. The occasional dependency bump
+> is acceptable, but all material changes must be submitted, reviewed and merged
+> upstream: <https://github.com/TimelyDataflow/timely-dataflow>
+>
+> This fork exists solely because:
+>   * we have an organizational ban on Git dependencies outside of the
+>     MaterializeInc GitHub organization; and
+>   * the upstream project does not regularly release to crates.io.
+
 Timely dataflow is a low-latency cyclic dataflow computational model, introduced in the paper [Naiad: a timely dataflow system](http://dl.acm.org/citation.cfm?id=2522738). This project is an extended and more modular implementation of timely dataflow in Rust.
 
 This project is something akin to a distributed data-parallel compute engine, which scales the same program up from a single thread on your laptop to distributed execution across a cluster of computers. The main goals are expressive power and high performance. It is probably strictly more expressive and faster than whatever you are currently using, assuming you aren't yet using timely dataflow.

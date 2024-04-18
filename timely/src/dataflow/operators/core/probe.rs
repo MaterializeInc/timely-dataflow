@@ -5,8 +5,8 @@ use std::cell::RefCell;
 
 use crate::progress::Timestamp;
 use crate::progress::frontier::{AntichainRef, MutableAntichain};
-use crate::dataflow::channels::pushers::CounterCore as PushCounter;
-use crate::dataflow::channels::pushers::buffer::BufferCore as PushBuffer;
+use crate::dataflow::channels::pushers::Counter as PushCounter;
+use crate::dataflow::channels::pushers::buffer::Buffer as PushBuffer;
 use crate::dataflow::channels::pact::Pipeline;
 use crate::dataflow::channels::pullers::Counter as PullCounter;
 use crate::dataflow::operators::generic::builder_raw::OperatorBuilder;
@@ -16,7 +16,7 @@ use crate::dataflow::{StreamCore, Scope};
 use crate::Container;
 
 /// Monitors progress at a `Stream`.
-pub trait Probe<G: Scope, D: Container> {
+pub trait Probe<G: Scope, C: Container> {
     /// Constructs a progress probe which indicates which timestamps have elapsed at the operator.
     ///
     /// # Examples
@@ -76,10 +76,10 @@ pub trait Probe<G: Scope, D: Container> {
     ///     }
     /// }).unwrap();
     /// ```
-    fn probe_with(&self, handle: &Handle<G::Timestamp>) -> StreamCore<G, D>;
+    fn probe_with(&self, handle: &Handle<G::Timestamp>) -> StreamCore<G, C>;
 }
 
-impl<G: Scope, D: Container> Probe<G, D> for StreamCore<G, D> {
+impl<G: Scope, C: Container> Probe<G, C> for StreamCore<G, C> {
     fn probe(&self) -> Handle<G::Timestamp> {
 
         // the frontier is shared state; scope updates, handle reads.
@@ -87,7 +87,7 @@ impl<G: Scope, D: Container> Probe<G, D> for StreamCore<G, D> {
         self.probe_with(&mut handle);
         handle
     }
-    fn probe_with(&self, handle: &Handle<G::Timestamp>) -> StreamCore<G, D> {
+    fn probe_with(&self, handle: &Handle<G::Timestamp>) -> StreamCore<G, C> {
 
         let mut builder = OperatorBuilder::new("Probe".to_owned(), self.scope());
         let mut input = PullCounter::new(builder.new_input(self, Pipeline));

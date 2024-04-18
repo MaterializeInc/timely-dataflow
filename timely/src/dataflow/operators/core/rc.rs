@@ -50,7 +50,7 @@ mod test {
     #[test]
     fn test_shared() {
         let output = crate::example(|scope| {
-            let shared = vec![Ok(0), Err(())].to_stream(scope).shared();
+            let shared = vec![Ok(0), Err(())].to_stream(scope).container::<Vec<_>>().shared();
             scope
                 .concatenate([
                     shared.unary(Pipeline, "read shared 1", |_, _| {
@@ -72,6 +72,7 @@ mod test {
                         }
                     }),
                 ])
+                .container::<Vec<_>>()
                 .capture()
         });
         let output = &mut output.extract()[0].1;

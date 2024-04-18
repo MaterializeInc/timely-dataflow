@@ -3,16 +3,16 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use crate::dataflow::channels::BundleCore;
+use crate::dataflow::channels::Bundle;
 use crate::progress::ChangeBatch;
 use crate::communication::Pull;
 use crate::Container;
 
 /// A wrapper which accounts records pulled past in a shared count map.
-pub struct Counter<T: Ord+Clone+'static, D, P: Pull<BundleCore<T, D>>> {
+pub struct Counter<T: Ord+Clone+'static, C, P: Pull<Bundle<T, C>>> {
     pullable: P,
     consumed: Rc<RefCell<ChangeBatch<T>>>,
-    phantom: ::std::marker::PhantomData<D>,
+    phantom: ::std::marker::PhantomData<C>,
 }
 
 /// A guard type that updates the change batch counts on drop
@@ -36,15 +36,15 @@ impl<T:Ord+Clone+'static> Drop for ConsumedGuard<T> {
     }
 }
 
-impl<T:Ord+Clone+'static, D: Container, P: Pull<BundleCore<T, D>>> Counter<T, D, P> {
+impl<T:Ord+Clone+'static, C: Container, P: Pull<Bundle<T, C>>> Counter<T, C, P> {
     /// Retrieves the next timestamp and batch of data.
     #[inline]
-    pub fn next(&mut self) -> Option<&mut BundleCore<T, D>> {
+    pub fn next(&mut self) -> Option<&mut Bundle<T, C>> {
         self.next_guarded().map(|(_guard, bundle)| bundle)
     }
 
     #[inline]
-    pub(crate) fn next_guarded(&mut self) -> Option<(ConsumedGuard<T>, &mut BundleCore<T, D>)> {
+    pub(crate) fn next_guarded(&mut self) -> Option<(ConsumedGuard<T>, &mut Bundle<T, C>)> {
         if let Some(message) = self.pullable.pull() {
             let guard = ConsumedGuard {
                 consumed: Rc::clone(&self.consumed),
@@ -57,7 +57,7 @@ impl<T:Ord+Clone+'static, D: Container, P: Pull<BundleCore<T, D>>> Counter<T, D,
     }
 }
 
-impl<T:Ord+Clone+'static, D, P: Pull<BundleCore<T, D>>> Counter<T, D, P> {
+impl<T:Ord+Clone+'static, C, P: Pull<Bundle<T, C>>> Counter<T, C, P> {
     /// Allocates a new `Counter` from a boxed puller.
     pub fn new(pullable: P) -> Self {
         Counter {

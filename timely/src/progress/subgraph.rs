@@ -45,7 +45,7 @@ where
     pub name: String,
 
     /// A sequence of integers uniquely identifying the subgraph.
-    pub path: Vec<usize>,
+    pub path: Rc<[usize]>,
 
     /// The index assigned to the subgraph by its parent.
     index: usize,
@@ -94,20 +94,19 @@ where
         self.edge_stash.push((source, target));
     }
 
-    /// Creates a new Subgraph from a channel allocator and "descriptive" indices.
+    /// Creates a `SubgraphBuilder` from a path of indexes from the dataflow root to the subgraph,
+    /// terminating with the local index of the new subgraph itself.
     pub fn new_from(
-        index: usize,
-        mut path: Vec<usize>,
+        path: Rc<[usize]>,
         logging: Option<Logger>,
         progress_logging: Option<ProgressLogger>,
         name: &str,
     )
         -> SubgraphBuilder<TOuter, TInner>
     {
-        path.push(index);
-
         // Put an empty placeholder for "outer scope" representative.
         let children = vec![PerOperatorState::empty(0, 0)];
+        let index = path[path.len() - 1];
 
         SubgraphBuilder {
             name: name.to_owned(),
@@ -131,16 +130,18 @@ where
 
     /// Adds a new child to the subgraph.
     pub fn add_child(&mut self, child: Box<dyn Operate<TInner>>, index: usize, identifier: usize) {
-        {
-            let mut child_path = self.path.clone();
+        if let Some(l) = &mut self.logging {
+            let mut child_path = Vec::with_capacity(self.path.len() + 1);
+            child_path.extend_from_slice(&self.path[..]);
             child_path.push(index);
-            self.logging.as_mut().map(|l| l.log(crate::logging::OperatesEvent {
+
+            l.log(crate::logging::OperatesEvent {
                 id: identifier,
                 addr: child_path,
                 name: child.name().to_owned(),
-            }));
+            });
         }
-        self.children.push(PerOperatorState::new(child, index, self.path.clone(), identifier, self.logging.clone()))
+        self.children.push(PerOperatorState::new(child, index, identifier, self.logging.clone()))
     }
 
     /// Now that initialization is complete, actually build a subgraph.
@@ -163,7 +164,8 @@ where
         let mut builder = reachability::Builder::new();
 
         // Child 0 has `inputs` outputs and `outputs` inputs, not yet connected.
-        builder.add_node(0, outputs, inputs, vec![vec![Antichain::new(); inputs]; outputs]);
+        let summary = (0..outputs).map(|_| (0..inputs).map(|_| Antichain::new()).collect()).collect();
+        builder.add_node(0, outputs, inputs, summary);
         for (index, child) in self.children.iter().enumerate().skip(1) {
             builder.add_node(index, child.inputs, child.outputs, child.internal_summary.clone());
         }
@@ -181,7 +183,7 @@ where
             .map(|logger| reachability::logging::TrackerLogger::new(path, logger));
         let (tracker, scope_summary) = builder.build(reachability_logging);
 
-        let progcaster = Progcaster::new(worker, &self.path, self.logging.clone(), self.progress_logging.clone());
+        let progcaster = Progcaster::new(worker, self.path.clone(), self.logging.clone(), self.progress_logging.clone());
 
         let mut incomplete = vec![true; self.children.len()];
         incomplete[0] = false;
@@ -230,7 +232,7 @@ where
 {
     name: String,           // an informative name.
     /// Path of identifiers from the root.
-    pub path: Vec<usize>,
+    pub path: Rc<[usize]>,
     inputs: usize,          // number of inputs.
     outputs: usize,         // number of outputs.
 
@@ -637,7 +639,6 @@ impl<T: Timestamp> PerOperatorState<T> {
     pub fn new(
         mut scope: Box<dyn Operate<T>>,
         index: usize,
-        mut _path: Vec<usize>,
         identifier: usize,
         logging: Option<Logger>
     ) -> PerOperatorState<T>

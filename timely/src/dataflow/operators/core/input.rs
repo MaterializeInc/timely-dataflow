@@ -153,10 +153,9 @@ impl<G: Scope> Input for G where <G as ScopeParent>::Timestamp: TotalOrder {
         let produced = counter.produced().clone();
 
         let index = self.allocate_operator_index();
-        let mut address = self.addr();
-        address.push(index);
+        let address = self.addr_for_child(index);
 
-        handle.activate.push(self.activator_for(&address[..]));
+        handle.activate.push(self.activator_for(address.clone()));
 
         let progress = Rc::new(RefCell::new(ChangeBatch::new()));
 
@@ -180,7 +179,7 @@ impl<G: Scope> Input for G where <G as ScopeParent>::Timestamp: TotalOrder {
 #[derive(Debug)]
 struct Operator<T:Timestamp> {
     name: String,
-    address: Vec<usize>,
+    address: Rc<[usize]>,
     shared_progress: Rc<RefCell<SharedProgress<T>>>,
     progress:   Rc<RefCell<ChangeBatch<T>>>,           // times closed since last asked
     messages:   Rc<RefCell<ChangeBatch<T>>>,           // messages sent since last asked
